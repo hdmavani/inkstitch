@@ -437,7 +437,118 @@ ground‑truth generator for your AI.
 
 ---
 
-## 12. TL;DR
+## 12. Additional Reusable Assets You Should Know About
+
+Beyond the core stitch engine, Ink/Stitch ships several components that map
+directly onto features an AI image-to-embroidery system normally has to build
+from scratch. Use these as "free modules":
+
+### 12.1 Thread / palette system — `lib/threads/` + `palettes/`
+- **75 commercial thread palettes** in `.gpl` format (Madeira Polyneon, Isacord, Aurifil, Brother, DMC, Gunold, Sulky, Robison-Anton, …). These are the actual color books embroidery machines work from.
+- `lib/threads/catalog.py` `ThreadCatalog.match_and_apply_palette(stitch_plan, palette)` — nearest‑neighbor color match from arbitrary RGB to real thread codes.
+- `lib/threads/color.py` `ThreadColor` — name, brand, hex, manufacturer code.
+- **AI use:** feed your model's predicted RGBs through this to snap to a thread book the user actually owns. Also great as supervised labels: train a CNN to predict thread codes directly. Generation extension is `lib/extensions/generate_palette.py`.
+
+### 12.2 Realistic & schematic preview renderers — `lib/extensions/png_realistic.py`, `png_simple.py`
+- `PngRealistic` produces a photo‑realistic preview of the finished embroidery (per‑stitch shading, thread highlights).
+- `PngSimple` produces a schematic/wireframe view.
+- **AI use:** differentiable‑ish reward signal. Render → compare against the input image with LPIPS/CLIP → backprop into segmentation choices, angles, palettes. Also useful as a data‑augmentation generator: render the same SVG with many fabrics/threads to build training pairs.
+
+### 12.3 Stitch simulator — `lib/gui/simulator/` (esp. `simulator_renderer.py`, `drawing_panel.py`)
+- Renders a stitch plan step‑by‑step at any speed with color blocks, jumps, trims, density map.
+- Pure Cairo/wx drawing logic — strip the wx wrapper to get a headless renderer.
+- **AI use:** generate per‑stitch animations / GIFs for users, *and* a density heatmap that the AI can use as a self‑critique loss (too dense → puckering, too sparse → gaps).
+
+### 12.4 Density map — `lib/extensions/density_map.py`
+- Computes stitches‑per‑mm² across the design.
+- **AI use:** standalone QA metric and constraint. Reject AI plans whose density exceeds a fabric threshold.
+
+### 12.5 Lettering engine — `lib/lettering/` + `lib/extensions/lettering*.py` + `fonts/`
+- Loads SVG fonts where each glyph is pre‑digitized with embroidery params.
+- Modules: `font.py`, `font_variant.py`, `glyph.py`, `paths.py`, `categories.py`.
+- Supports kerning, baseline curves (`lettering_along_path.py`), multi‑line, custom font dirs.
+- **AI use:** if the AI ever has to put names/text into an embroidery design (monogramming, jersey numbers, logos with text), don't roll your own — this engine produces machine‑ready text and is one of Ink/Stitch's strongest assets.
+
+### 12.6 Auto‑satin & shape converters
+- `lib/stitches/auto_satin.py` + extension `auto_satin.py` — pair of rails from a single boundary.
+- `lib/extensions/stroke_to_satin.py`, `fill_to_satin.py`, `satin_to_stroke.py`, `zigzag_line_to_satin.py`, `fill_to_stroke.py` — programmatic conversions between fill, satin and stroke representations.
+- **AI use:** post‑processors. The AI picks a stitch type per region; these utilities do the geometry conversion so the rest of the pipeline (`FillStitch`/`SatinColumn`) just works.
+
+### 12.7 Auto‑run / optimal routing — `lib/stitches/auto_run.py` + `lib/extensions/auto_run.py`
+- Orders strokes / paths so machine travel is minimized across an entire design.
+- **AI use:** run as a final pass to cut jump count by 20–60% with no AI involvement. Pairs well with `reorder.py` which globally re‑orders color blocks (fewer color changes).
+
+### 12.8 Specialty fills
+- `lib/stitches/linear_gradient_fill.py` — fill density driven by an SVG linear gradient (good for shading / depth in AI portraits).
+- `lib/stitches/meander_fill.py` — wandering single‑line fills (matches AI "doodle" outputs).
+- `lib/stitches/circular_fill.py` — concentric‑from‑center rows (good for eyes, suns, flowers).
+- `lib/stitches/tartan_fill.py` + `lib/tartan/` — pattern‑based fills.
+- `lib/extensions/cutwork_segmentation.py` — segments shapes for cutwork (laser/scissor cut + embroidered border).
+- **AI use:** treat fill_method as another label your classifier picks per region. Linear‑gradient fill in particular is the cleanest way to map shaded AI outputs (e.g. a face) to varying stitch density.
+
+### 12.9 Pattern stamps & tiles — `lib/patterns.py`, `lib/tiles.py`, `tiles/`
+- ~17 hand‑digitized embroidery tile patterns (`tiles/N3-*`).
+- Used as repeating fill textures.
+- **AI use:** texture library. Plus a non‑AI fallback for areas where the AI is uncertain — drop in a tile.
+
+### 12.10 Output / input format I/O — `lib/extensions/output.py`, `input.py`, `lib/output.py`
+- `output.py` writes 10+ formats via pystitch.
+- `input.py` reads embroidery files **back into SVG paths** — meaning you have a free **DST/PES → SVG** importer. Lets your AI consume existing embroidery designs as training data.
+- `lib/extensions/zip.py` exports a bundle of formats + PDF in one go.
+- **AI use:** scraping/ingesting existing embroidery libraries to train on.
+
+### 12.11 Plan‑aware utilities
+- `lib/extensions/jump_to_stroke.py`, `jump_to_trim.py` — convert long jumps into running stitches or trim commands.
+- `lib/extensions/cleanup.py` — remove duplicate / zero‑length stitches.
+- `lib/extensions/remove_duplicated_points.py` — geometry dedupe before stitching.
+- `lib/extensions/break_apart.py` — split compound paths.
+- **AI use:** robust pre/post‑processors so flaky AI vectorization doesn't crash the stitcher.
+
+### 12.12 Manufacturing / shop‑floor outputs
+- `lib/extensions/print_pdf.py` — printable work order with thread list, stitch counts, color sequence, preview.
+- `lib/extensions/thread_list.py`, `apply_threadlist.py` — bill‑of‑materials.
+- `lib/extensions/test_swatches.py` — generate density / tension test patches for a new fabric (very useful as AI calibration data!).
+- **AI use:** ship a "production package" alongside the AI design — increases product polish for free.
+
+### 12.13 Multi‑color satin + gradient blocks
+- `lib/gui/satin_multicolor/`, `lib/extensions/satin_multicolor.py`, `gradient_blocks.py` — split a satin column or fill into smooth color transitions.
+- **AI use:** photo‑realistic embroidery from color images — the AI predicts a color *field* along the satin, this module discretizes it into stitchable blocks.
+
+### 12.14 SewStack — layered effects — `lib/sew_stack/`
+- A newer system that stacks multiple stitch layers (underlay + fill + topstitch) per element.
+- **AI use:** lets the AI compose multi‑pass effects (e.g. matte underlay + glossy satin top) without re‑inventing the layer model.
+
+### 12.15 Debug / logging infrastructure — `lib/debug/`
+- Structured logging + SVG debug overlays of intermediate geometry (grating, graphs, routing).
+- **AI use:** drop directly into your pipeline so the model's intermediate outputs (segmentation, angle field, routed path) can be inspected as SVG.
+
+### 12.16 i18n — `lib/i18n.py` + `translations/`
+- 20+ languages translated.
+- **AI use:** if the product is end‑user facing, you inherit the localized strings for free.
+
+### 12.17 Troubleshoot & validation — `lib/extensions/troubleshoot.py`, `lib/exceptions.py`
+- Walks the design, flags un‑stitchable geometry (open paths in fills, zero‑width satins, image nodes, etc.).
+- **AI use:** wrap as a validator between "AI output" and "stitch generation" — converts silent failures into actionable errors.
+
+### 12.18 Density‑aware knockdown & underlay — `knockdown_fill.py`, underlay options inside `FillStitch`/`SatinColumn`
+- **AI use:** underlay is mandatory for production‑quality embroidery; let Ink/Stitch own it. The AI just decides "use underlay yes/no" and "type".
+
+---
+
+### Suggested "modules to vendor" for the AI system (priority order)
+
+1. `lib/stitches/` + `lib/stitch_plan/` + `lib/output.py` — engine.
+2. `lib/threads/` + `palettes/` — color/thread realism.
+3. `lib/stitches/auto_run.py` + `lib/extensions/reorder.py` — routing optimizer.
+4. `lib/extensions/density_map.py` + `troubleshoot.py` — QA / loss signals.
+5. `lib/extensions/png_realistic.py` + `lib/gui/simulator/simulator_renderer.py` (headless) — preview / reward.
+6. `lib/lettering/` + `fonts/` — text rendering.
+7. `lib/extensions/input.py` — read existing DST/PES for training data.
+8. `lib/sew_stack/` + multicolor satin + gradient fill — advanced photo‑realistic mode.
+
+---
+
+## 13. TL;DR
 
 - Ink/Stitch's **stitch generation core** (`lib/stitches/` + `lib/stitch_plan/` + `lib/output.py`) is pure Python and **drop‑in usable** by any AI system that can produce colored shapely polygons.
 - **It does not auto‑vectorize images** — you pair it with potrace/vtracer or your own segmentation model. The built‑in `BitmapToCrossStitch` covers the pixelated cross‑stitch case.

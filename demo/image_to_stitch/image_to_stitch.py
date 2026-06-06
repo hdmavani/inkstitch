@@ -337,6 +337,16 @@ def main():
                     help="longest single stitch in mm. Typical 2.5-3.5. "
                          "Smaller = finer detail / slower / more thread. "
                          "Larger = faster / coarser.")
+    ap.add_argument("--passes", type=int, default=1,
+                    help="number of fill passes per region. 1 = single pass (default). "
+                         "2-3 = thicker / denser coverage (the standard embroidery "
+                         "'underlay + topstitch' technique). Each extra pass uses a "
+                         "rotated angle so stitches don't stack on identical lines. "
+                         "Use this when you want MORE stitches / heavier fill without "
+                         "decreasing row-spacing.")
+    ap.add_argument("--pass-angle-step", type=float, default=90.0,
+                    help="degrees to rotate each additional pass (default 90 = "
+                         "perpendicular underlay; try 45 for a cross-hatched look).")
     ap.add_argument("--angle", type=float, default=0.0,
                     help="fill direction in degrees (0 = horizontal).")
     ap.add_argument("--format", default="dst",
@@ -455,9 +465,13 @@ def main():
     print(f"Image {W_px}x{H_px} px  ->  {width_mm:.1f} x {height_mm:.1f} mm "
           f"(fit={args.fit})")
     print(explain_size(width_mm, height_mm))
+    passes_note = ""
+    if args.passes > 1:
+        passes_note = (f", {args.passes} passes "
+                       f"(+{args.pass_angle_step:.0f}° each)")
     print(f"Density: row spacing {row_spacing_mm:.2f} mm "
           f"(~{est_rows} rows across), max stitch {args.max_stitch_mm:.1f} mm, "
-          f"angle {args.angle}°")
+          f"angle {args.angle}°{passes_note}")
     print(f"Foreground: {fg_mask.mean()*100:.0f}% of pixels, {args.colors} colours requested")
 
     # 3-4. per colour: polygons -> fill runs
@@ -473,10 +487,13 @@ def main():
         if not polys:
             continue
         runs = []
+        n_passes = max(1, args.passes)
         for poly in polys:
-            run = fill_polygon(poly, args.angle, row_spacing_mm, args.max_stitch_mm)
-            if len(run) >= 2:
-                runs.append(run)
+            for p in range(n_passes):
+                pass_angle = args.angle + p * args.pass_angle_step
+                run = fill_polygon(poly, pass_angle, row_spacing_mm, args.max_stitch_mm)
+                if len(run) >= 2:
+                    runs.append(run)
         if runs:
             total_pts = sum(len(r) for r in runs)
             color_blocks.append((rgb, runs))

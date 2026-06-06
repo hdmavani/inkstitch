@@ -87,6 +87,8 @@ python image_to_stitch.py photo.png --hoop 4x4    # 100x100 mm hoop
 | `--stitch-length-mm` | 2.5–3.5 | longest single needle drop; smaller = finer / slower / more thread |
 | `--row-spacing-mm`   | 0.30–0.50 | gap between fill rows; smaller = denser coverage, heavier fabric load |
 | `--density`          | 2.0–3.5 rows/mm | inverse of row-spacing if you prefer thinking that way |
+| `--passes`           | 1–3     | number of fill passes per region. 1 = single pass; 2 = perpendicular cross-fill (real underlay+topstitch); 3 = three-direction heavy fill. Each extra pass roughly **doubles the stitches** for that region. |
+| `--pass-angle-step`  | 90°     | degrees to rotate each extra pass. 90 = perpendicular (default). 45 = diagonal cross-hatch. |
 
 `--stitch-length-mm` is an alias for `--max-stitch-mm`; use whichever feels natural.
 
@@ -103,6 +105,18 @@ python image_to_stitch.py photo.png --width-mm 200
 
 # explicit density in rows/mm
 python image_to_stitch.py photo.png --width-mm 80 --density 3.0
+```
+
+### Density / coverage examples
+```bash
+# default single pass
+python image_to_stitch.py photo.png --hoop 4x4
+
+# 2 passes = perpendicular cross-fill, ~2x stitches, much fuller coverage
+python image_to_stitch.py photo.png --hoop 4x4 --passes 2
+
+# 3 passes with 60deg offsets = heavy three-direction fill
+python image_to_stitch.py photo.png --hoop 4x4 --passes 3 --pass-angle-step 60
 ```
 
 ### Background examples

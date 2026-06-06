@@ -438,7 +438,7 @@ def main():
 
     # 6. preview
     out_png = os.path.join(args.outdir, "out.png")
-    render_preview(color_blocks, args.width_mm, height_mm, out_png)
+    render_preview(color_blocks, width_mm, height_mm, out_png)
     print(f"Wrote preview {out_png}")
 
 

@@ -23,11 +23,52 @@ python image_to_stitch.py photo.png --colors 8 --row-spacing-mm 0.4 --angle 45 -
 | Flag | Spec § | Meaning |
 |------|--------|---------|
 | `--colors N` | §2 | number of thread colours (quantization) |
-| `--width-mm` | — | physical design width |
-| `--row-spacing-mm` | §4 | fill density (0.3–0.5 typical) |
-| `--max-stitch-mm` | §4 | longest single stitch |
+| **Size** | | |
+| `--width-mm` | §1.1 | physical design width on fabric |
+| `--height-mm` | §1.1 | physical design height (optional; derived from aspect if omitted) |
+| `--fit contain\|stretch` | §1.1 | aspect handling when both w & h are given |
+| **Density** | | |
+| `--row-spacing-mm` | §1.1, §4 | gap between fill rows (0.30–0.50 typical). Auto if omitted. |
+| `--density` | §1.1 | alternative: rows per mm (e.g. 2.5 = 0.4 mm spacing) |
+| `--max-stitch-mm` | §4 | longest single stitch (default 3.0) |
 | `--angle` | §4 | fill direction in degrees |
+| **Background** | | |
+| `--remove-bg` | §1.2 | force background removal (default: auto-detect) |
+| `--keep-bg` | §1.2 | do NOT remove background (debug / appliqué) |
+| `--bg-color R,G,B` | §1.2 | explicit background colour |
+| `--bg-tolerance` | §1.2 | how close to bg-color counts (0–255, default 18) |
+| `--alpha-threshold` | §1.2 | alpha cutoff for transparent images (default 128) |
+| `--min-region-mm2` | §1.2 | drop colour regions smaller than this |
+| **Output** | | |
 | `--format` | §6 | dst, pes, exp, jef, vp3, csv |
+| `--outdir` | | where to write `out.<fmt>` and `out.png` |
+
+### Sizing examples
+```bash
+# 80 mm wide, height auto from aspect, auto density (0.40 mm)
+python image_to_stitch.py photo.png --width-mm 80
+
+# fit inside a 100x100 mm box preserving aspect, force 0.35 mm density
+python image_to_stitch.py photo.png --width-mm 100 --height-mm 100 --row-spacing-mm 0.35
+
+# big design (200 mm), auto density picks 0.50 mm
+python image_to_stitch.py photo.png --width-mm 200
+
+# explicit density in rows/mm
+python image_to_stitch.py photo.png --width-mm 80 --density 3.0
+```
+
+### Background examples
+```bash
+# auto (default): detect from alpha or corner colour
+python image_to_stitch.py photo.png --colors 4
+
+# explicit white background, looser tolerance for JPEG artefacts
+python image_to_stitch.py photo.jpg --bg-color 255,255,255 --bg-tolerance 30
+
+# keep background (e.g. for appliqué or full-coverage designs)
+python image_to_stitch.py photo.png --keep-bg
+```
 
 ## Verifying output
 ```python

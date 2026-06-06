@@ -56,6 +56,67 @@ Each stage maps to concrete Ink/Stitch code:
 
 ---
 
+## 1.1 Physical size and density (do this before tuning anything else)
+
+Embroidery is a **physical** medium — every parameter is in **millimetres on the
+fabric**, not pixels. The stitched result only makes sense once you've fixed the
+final size on the hoop. Set this *first*, then tune density to match.
+
+| Option | Meaning | Default | Typical |
+|--------|---------|---------|---------|
+| `width_mm` | design width on the fabric | — | 50 – 200 mm |
+| `height_mm` | design height on the fabric | derived from aspect | — |
+| `fit` | when both w & h are given: `contain` (preserve aspect) or `stretch` | `contain` | `contain` |
+| `row_spacing_mm` | gap between fill rows (= 1 / density) | auto | 0.30 – 0.50 mm |
+| `density` | rows per mm (inverse of row_spacing) | auto | 2.0 – 3.5 rows/mm |
+| `max_stitch_mm` | longest single stitch | 3.0 mm | 2.5 – 3.5 mm |
+
+**Why this matters:** if you fix `row_spacing_mm = 0.4` and stitch the same
+design at 50 mm and at 200 mm wide, the small one gets ~125 rows and the big
+one ~500 rows. Both look "correct" in real thread, but the small one is far
+denser perceptually because each row covers a larger fraction of a petal.
+That is why the demo's auto-density picks coarser spacing for larger designs:
+
+| design width (largest side) | auto row_spacing | auto density |
+|-----------------------------|------------------|--------------|
+| < 40 mm | 0.30 mm | 3.33 rows/mm |
+| 40 – 120 mm | 0.40 mm | 2.50 rows/mm |
+| > 120 mm | 0.50 mm | 2.00 rows/mm |
+
+You can override with `--row-spacing-mm` (absolute) **or** `--density` (rows/mm)
+— never both at once.
+
+---
+
+## 1.2 Background removal (do not stitch the background)
+
+A raster image always has a background. If you stitch it the way Stage 2
+quantizes the picture, **the background becomes a thread colour** and floods
+the entire hoop with stitches (this is what produced the all-diagonal image in
+the previous run). Background removal is therefore not optional for real
+designs — it is a mandatory pre-step.
+
+| Option | Meaning | Default |
+|--------|---------|---------|
+| `--remove-bg` | force background removal | on (auto) |
+| `--keep-bg` | stitch the background too (debug / appliqué) | off |
+| `--bg-color R,G,B` | explicit background colour | — |
+| `--bg-tolerance` | how close to bg-color counts (0-255) | 18 |
+| `--alpha-threshold` | alpha < this is treated as background | 128 |
+| `--min-region-mm2` | drop colour regions smaller than this | 2.0 |
+
+Detection order (auto mode):
+1. **Alpha channel** — if the image has transparency, alpha < threshold = BG.
+2. **Corner-colour median** — opaque images: median of the 4 corners is taken
+   as BG, then pixels within `bg-tolerance` of it are dropped.
+3. If the would-be background covers < 5 % of the image, removal is skipped
+   (probably wasn't really a background).
+
+This is the equivalent of the alpha / colour-key step inside Ink/Stitch's
+`BitmapToCrossStitch` (`lib/extensions/utils/bitmap_to_cross_stitch.py`).
+
+---
+
 ## 2. Stage 1 — Colour quantization (how "multi-colour" is decided)
 
 The number of thread colours = the number of times the machine stops to re-thread.

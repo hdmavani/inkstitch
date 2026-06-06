@@ -50,11 +50,43 @@ from shapely.ops import unary_union
 
 
 TENTHS_PER_MM = 10.0
+INCH_MM = 25.4
 
 
 def mm(value_mm):
     """millimetres -> embroidery units (tenths of a mm)."""
     return value_mm * TENTHS_PER_MM
+
+
+# Standard machine-embroidery hoop sizes (inner dimensions, mm).
+# Names follow common usage: imperial inches first, then the size in mm.
+HOOPS = {
+    "4x4":   (100, 100, "Most common home hoop. Small badges, patches, monograms."),
+    "5x7":   (130, 180, "Medium home hoop. Pocket logos, larger crests."),
+    "6x10":  (160, 260, "Large home / commercial. Back-of-jacket, big motifs."),
+    "8x8":   (200, 200, "Commercial square. Full chest logos."),
+    "8x12":  (200, 300, "Commercial. Big designs, banners."),
+    "a4":    (210, 297, "A4 sheet. Commercial multi-needle machines."),
+    "12x12": (300, 300, "Industrial single-head."),
+}
+
+
+def explain_size(width_mm, height_mm):
+    """Return a human description of the design size."""
+    w_in = width_mm / INCH_MM
+    h_in = height_mm / INCH_MM
+    # find the smallest standard hoop the design fits in
+    fits = None
+    for name, (hw, hh, desc) in HOOPS.items():
+        if width_mm <= hw and height_mm <= hh:
+            fits = (name, hw, hh, desc)
+            break
+    note = f"  ~{w_in:.1f}\" x {h_in:.1f}\""
+    if fits:
+        note += f" -- fits {fits[0]} hoop ({fits[1]}x{fits[2]} mm). {fits[3]}"
+    else:
+        note += "  -- larger than 12x12 hoop; needs splitting or a jumbo frame."
+    return note
 
 
 # --------------------------------------------------------------------------- #
@@ -289,14 +321,22 @@ def main():
     ap.add_argument("--fit", choices=("contain", "stretch"), default="contain",
                     help="when BOTH width and height are given: 'contain' preserves aspect, "
                          "'stretch' fills the box.")
+    ap.add_argument("--hoop", choices=list(HOOPS.keys()), default=None,
+                    help="size the design to fit a standard hoop: "
+                         + ", ".join(f"{k}={w}x{h}mm" for k, (w, h, _) in HOOPS.items()))
+    ap.add_argument("--list-hoops", action="store_true",
+                    help="print the standard hoop sizes and exit")
     # DENSITY -- two equivalent ways to set it.
     ap.add_argument("--row-spacing-mm", type=float, default=None,
                     help="gap between rows in mm (real-world stitch density). "
                          "Typical 0.30-0.50. Default: auto from design size.")
     ap.add_argument("--density", type=float, default=None,
                     help="alternative to --row-spacing-mm: rows per mm (e.g. 2.5 = 0.4mm spacing).")
-    ap.add_argument("--max-stitch-mm", type=float, default=3.0,
-                    help="longest single stitch in mm (2.5-3.5 typical).")
+    ap.add_argument("--max-stitch-mm", "--stitch-length-mm", type=float, default=3.0,
+                    dest="max_stitch_mm",
+                    help="longest single stitch in mm. Typical 2.5-3.5. "
+                         "Smaller = finer detail / slower / more thread. "
+                         "Larger = faster / coarser.")
     ap.add_argument("--angle", type=float, default=0.0,
                     help="fill direction in degrees (0 = horizontal).")
     ap.add_argument("--format", default="dst",
@@ -319,6 +359,22 @@ def main():
                     help="drop colour regions smaller than this")
 
     args = ap.parse_args()
+
+    if args.list_hoops:
+        print("Standard machine-embroidery hoop sizes:\n")
+        print(f"  {'name':<7} {'mm':<12} {'inches':<10}  description")
+        for name, (w, h, desc) in HOOPS.items():
+            print(f"  {name:<7} {w}x{h:<6}  {w/INCH_MM:.1f}\"x{h/INCH_MM:<5.1f}\" {desc}")
+        sys.exit(0)
+
+    # --hoop is a shortcut that sets width/height bounds
+    if args.hoop is not None:
+        hw, hh, _ = HOOPS[args.hoop]
+        if args.width_mm is None and args.height_mm is None:
+            args.width_mm = hw
+            args.height_mm = hh
+        print(f"Using hoop {args.hoop}: max {hw} x {hh} mm")
+
     if args.bg_color is not None:
         bg_mode = "color"
     else:
@@ -398,6 +454,7 @@ def main():
     est_rows = int(max(width_mm, height_mm) / row_spacing_mm)
     print(f"Image {W_px}x{H_px} px  ->  {width_mm:.1f} x {height_mm:.1f} mm "
           f"(fit={args.fit})")
+    print(explain_size(width_mm, height_mm))
     print(f"Density: row spacing {row_spacing_mm:.2f} mm "
           f"(~{est_rows} rows across), max stitch {args.max_stitch_mm:.1f} mm, "
           f"angle {args.angle}°")

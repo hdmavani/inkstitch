@@ -43,6 +43,53 @@ python image_to_stitch.py photo.png --colors 8 --row-spacing-mm 0.4 --angle 45 -
 | `--format` | §6 | dst, pes, exp, jef, vp3, csv |
 | `--outdir` | | where to write `out.<fmt>` and `out.png` |
 
+### What mm should I pick? (real-world reference)
+
+Embroidery is sized in **millimetres on the fabric**, constrained by the **hoop**
+on your machine. Pick a hoop, that fixes the maximum design size.
+
+| Hoop  | mm        | inches    | Use case                                         |
+|-------|-----------|-----------|--------------------------------------------------|
+| 4×4   | 100×100   | 3.9×3.9   | Most common home hoop. Badges, patches, monograms |
+| 5×7   | 130×180   | 5.1×7.1   | Medium home hoop. Pocket logos, larger crests    |
+| 6×10  | 160×260   | 6.3×10.2  | Large home / commercial. Back-of-jacket, big motifs |
+| 8×8   | 200×200   | 7.9×7.9   | Commercial square. Full chest logos              |
+| 8×12  | 200×300   | 7.9×11.8  | Commercial. Big designs, banners                 |
+| A4    | 210×297   | 8.3×11.7  | Commercial multi-needle                          |
+| 12×12 | 300×300   | 11.8×11.8 | Industrial single-head                           |
+
+List them at any time:
+```bash
+python image_to_stitch.py --list-hoops
+```
+
+Use a hoop directly as a sizing shortcut:
+```bash
+python image_to_stitch.py photo.png --hoop 5x7    # fits design inside 130x180 mm
+python image_to_stitch.py photo.png --hoop 4x4    # 100x100 mm hoop
+```
+
+**Reference sizes for common things:**
+
+| Thing                    | Typical size  | Hoop     |
+|--------------------------|---------------|----------|
+| Shirt pocket logo        | 70–90 mm wide | 4×4      |
+| Cap front                | 50–60 mm tall | 4×4      |
+| Full chest / back logo   | 100–130 mm    | 5×7      |
+| Hoodie back panel        | 200–280 mm    | 6×10+    |
+| Towel monogram           | 40–60 mm      | 4×4      |
+| Patch / badge            | 50–100 mm     | 4×4      |
+
+**Per-stitch dimensions** (independent of hoop):
+
+| Setting              | Typical | Meaning |
+|----------------------|---------|---------|
+| `--stitch-length-mm` | 2.5–3.5 | longest single needle drop; smaller = finer / slower / more thread |
+| `--row-spacing-mm`   | 0.30–0.50 | gap between fill rows; smaller = denser coverage, heavier fabric load |
+| `--density`          | 2.0–3.5 rows/mm | inverse of row-spacing if you prefer thinking that way |
+
+`--stitch-length-mm` is an alias for `--max-stitch-mm`; use whichever feels natural.
+
 ### Sizing examples
 ```bash
 # 80 mm wide, height auto from aspect, auto density (0.40 mm)
